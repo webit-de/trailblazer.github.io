@@ -514,6 +514,79 @@ Of course this works in views too:
 
     <%= title(escape: false) %>
 
+If you feel this is not enough, then have a look at `Decoration`.
+
+## Decoration
+
+If you don't like the HTML Escaping method above, because it is too easy to forget something, than maybe the Decoration feature is for you.
+
+Include `Decoration` to wrap the model of the cell in a decorator class. The default decorator class is the EscapeDecorator.
+It delegates every instance method to your model and HTML escapes the result if it is a string. If the result is an object it gets decorated again,
+to escape the result of chaining method calls, too.
+
+
+```ruby
+class CommentCell < Cell::ViewModel
+  include Decoration
+
+  def show
+    "Title: #{model.title} by #{model.artist.name}"
+  end
+end
+
+song.title              #=> "<script>Dangerous</script>"
+song.artist.name        #=> "<script>Dangerous, too!</script>"
+Comment::Cell.(song).() #=> Title: &lt;script&gt;Dangerous&lt;/script&gt; by &lt;script&gt;Dangerous, too!&lt;/script&gt;
+```
+
+If you want to change the default decorator and use your own, you can just set `self.decorator_class` in your cell to your own decorator.
+
+
+```ruby
+class SongDecorator < Cell::ViewModel::Decoration::EscapeDecorator
+  def published_at
+    if datetime = super
+      I18n.l(datetime)
+    end
+  end
+end
+
+class CommentCell < Cell::ViewModel
+  include Decoration
+  self.decorator_class = SongDecorator
+
+  def show
+    "Title: #{model.title} by #{model.artist.name} at #{model.published_at}"
+  end
+end
+```
+
+So this basic decorator pattern allows not only escaping but also reusable formatting of attribute values of your model for the view.
+If you have one attribute, that you don't want to get escaped automatically you have to define it in your own decorator and call the model accessor directly.
+
+```ruby
+class SongDecorator < Cell::ViewModel::Decoration::EscapeDecorator
+  def html_description
+    @model.html_description
+  end
+end
+
+class CommentCell < Cell::ViewModel
+  include Decoration
+  self.decorator_class = SongDecorator
+
+  def show
+    "Description: #{model.html_description}"
+  end
+end
+
+song.html_description   #=> "<b>Yeah!</b>"
+Comment::Cell.(song).() #=>"Description: <b>Yeah!</b>"
+```
+
+If you need you can also specify a `Twin` as decorator class.
+If you want to instanciate the decorator by yourself simply do: `Cell::ViewModel::Decoration::EscapeDecorator.new(model)`
+
 
 ## Context Object
 
